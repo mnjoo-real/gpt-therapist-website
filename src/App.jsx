@@ -1,121 +1,138 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useState } from 'react'
 import './App.css'
+import { supabase } from './lib/supabaseClient'
+import LoginPage from './pages/LoginPage'
+import MainPage from './pages/MainPage'
+
+function getCurrentPath() {
+  return window.location.pathname
+}
+
+function navigateTo(path) {
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, '', path)
+    window.dispatchEvent(new Event('popstate'))
+  }
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [path, setPath] = useState(getCurrentPath)
+  const [session, setSession] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [isLoadingSession, setIsLoadingSession] = useState(true)
+
+  useEffect(() => {
+    const handlePopState = () => setPath(getCurrentPath())
+    window.addEventListener('popstate', handlePopState)
+
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadSession() {
+      const { data, error } = await supabase.auth.getSession()
+
+      if (!isMounted) {
+        return
+      }
+
+      if (error) {
+        console.error('Unable to load Supabase session:', error.message)
+      }
+
+      setSession(data.session)
+      setIsLoadingSession(false)
+    }
+
+    loadSession()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      if (!nextSession) {
+        setProfile(null)
+      }
+      setIsLoadingSession(false)
+    })
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    async function loadProfile(userId) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('Unable to load profile:', error.message)
+        setProfile(null)
+        return
+      }
+
+      setProfile(data)
+    }
+
+    if (!session?.user?.id) {
+      return
+    }
+
+    loadProfile(session.user.id)
+  }, [session])
+
+  useEffect(() => {
+    if (isLoadingSession) {
+      return
+    }
+
+    if (!session && path !== '/login') {
+      navigateTo('/login')
+    }
+
+    if (session && path === '/login') {
+      navigateTo('/')
+    }
+  }, [isLoadingSession, path, session])
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    navigateTo('/login')
+  }
+
+  if (isLoadingSession) {
+    return (
+      <main className="app-loading" aria-live="polite">
+        Loading your journal...
+      </main>
+    )
+  }
+
+  if (path === '/login') {
+    return <LoginPage onNavigateHome={() => navigateTo('/')} />
+  }
+
+  if (!session) {
+    return (
+      <main className="app-loading" aria-live="polite">
+        Redirecting to sign in...
+      </main>
+    )
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <MainPage
+      profile={profile}
+      session={session}
+      onSignOut={handleSignOut}
+    />
   )
 }
 
