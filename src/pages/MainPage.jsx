@@ -3,6 +3,7 @@ import EntrySidebar from '../components/EntrySidebar'
 import EssayEditor from '../components/EssayEditor'
 import Footer from '../components/Footer'
 import Navbar from '../components/Navbar'
+import ReflectionPreview from '../components/ReflectionPreview'
 import { supabase } from '../lib/supabaseClient'
 
 function getTodayDate() {
@@ -24,16 +25,26 @@ function getEntryContent(entries, dateValue) {
   )
 }
 
+function getEntryForDate(entries, dateValue) {
+  return entries.find((entry) => entry.entry_date === dateValue) || null
+}
+
 function MainPage({ profile, session, onSignOut }) {
   const today = useMemo(() => getTodayDate(), [])
   const [entries, setEntries] = useState([])
   const [selectedDate, setSelectedDate] = useState(today)
   const [content, setContent] = useState('')
   const [isLoadingEntries, setIsLoadingEntries] = useState(true)
+  const [isLoadingReflection, setIsLoadingReflection] = useState(false)
+  const [reflection, setReflection] = useState(null)
+  const [mentalContext, setMentalContext] = useState(null)
+  const [reflectionStatus, setReflectionStatus] = useState('')
+  const [reflectionError, setReflectionError] = useState('')
   const [loadError, setLoadError] = useState('')
   const [saveStatus, setSaveStatus] = useState('')
 
   const userId = session.user.id
+  const selectedEntry = getEntryForDate(entries, selectedDate)
   const displayName =
     profile?.display_name || session.user.email?.split('@')[0] || 'there'
 
@@ -74,10 +85,75 @@ function MainPage({ profile, session, onSignOut }) {
     }
   }, [today, userId])
 
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadReflection(entryId) {
+      setIsLoadingReflection(true)
+      setReflectionStatus('')
+      setReflectionError('')
+
+      const [
+        { data: reflectionData, error: reflectionLoadError },
+        { data: mentalContextData, error: contextLoadError },
+      ] = await Promise.all([
+        supabase
+          .from('entry_reflections')
+          .select(
+            'id,entry_id,user_id,summary,emotions,themes,gentle_questions,supportive_note,risk_level,created_at,updated_at',
+          )
+          .eq('entry_id', entryId)
+          .maybeSingle(),
+        supabase
+          .from('user_mental_context')
+          .select(
+            'user_id,long_term_summary,recurring_themes,emotional_patterns,helpful_response_style,last_updated_entry_date,updated_at',
+          )
+          .eq('user_id', userId)
+          .maybeSingle(),
+      ])
+
+      if (!isMounted) {
+        return
+      }
+
+      if (reflectionLoadError || contextLoadError) {
+        setReflectionError(
+          reflectionLoadError?.message ||
+            contextLoadError?.message ||
+            'Could not load reflection support.',
+        )
+      }
+
+      setReflection(reflectionData || null)
+      setMentalContext(mentalContextData || null)
+      setIsLoadingReflection(false)
+    }
+
+    if (!selectedEntry?.id) {
+      return
+    }
+
+    loadReflection(selectedEntry.id)
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedEntry?.id, userId])
+
   function handleSelectDate(dateValue) {
+    if (!dateValue) {
+      return
+    }
+
     setSelectedDate(dateValue)
     setContent(getEntryContent(entries, dateValue))
+    setReflection(null)
+    setMentalContext(null)
     setSaveStatus('')
+    setReflectionStatus('')
+    setReflectionError('')
+    setIsLoadingReflection(false)
   }
 
   async function handleSave() {
@@ -111,6 +187,33 @@ function MainPage({ profile, session, onSignOut }) {
     setSaveStatus('Saved')
   }
 
+  async function handleReflectOnEntry() {
+    if (!selectedEntry?.id) {
+      setReflectionError('Please save this entry before reflecting on it.')
+      return
+    }
+
+    setIsLoadingReflection(true)
+    setReflectionStatus('Reflecting...')
+    setReflectionError('')
+
+    const { data, error } = await supabase.functions.invoke('reflect-entry', {
+      body: { entry_id: selectedEntry.id },
+    })
+
+    if (error) {
+      setReflectionError(error.message || 'Reflection failed.')
+      setReflectionStatus('')
+      setIsLoadingReflection(false)
+      return
+    }
+
+    setReflection(data.reflection || null)
+    setMentalContext(data.mental_context || null)
+    setReflectionStatus('Reflection ready')
+    setIsLoadingReflection(false)
+  }
+
   return (
     <div className="app-shell">
       <Navbar displayName={displayName} onSignOut={onSignOut} />
@@ -139,9 +242,21 @@ function MainPage({ profile, session, onSignOut }) {
           <EssayEditor
             content={content}
             selectedDate={selectedDate}
+            today={today}
             saveStatus={saveStatus}
             onChangeContent={setContent}
+            onChangeDate={handleSelectDate}
             onSave={handleSave}
+          />
+
+          <ReflectionPreview
+            canReflect={Boolean(selectedEntry?.id)}
+            isLoading={isLoadingReflection}
+            reflection={reflection}
+            mentalContext={mentalContext}
+            status={reflectionStatus}
+            errorMessage={reflectionError}
+            onReflect={handleReflectOnEntry}
           />
         </section>
       </main>

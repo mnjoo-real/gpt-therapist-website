@@ -14,15 +14,24 @@ function EntrySidebar({
   today,
   onSelectDate,
 }) {
-  const dateValues = Array.from(
-    new Set([selectedDate, today, ...entries.map((entry) => entry.entry_date)]),
-  ).sort((a, b) => b.localeCompare(a))
+  const dateValues = entries.map((entry) => entry.entry_date)
+
+  function handleAddPastEntry() {
+    document.getElementById('entry-date')?.focus()
+  }
 
   return (
     <aside className="entry-sidebar" aria-label="Journal entry dates">
       <div className="sidebar-heading">
         <p className="section-label">Entries</p>
         <h2>Dates</h2>
+        <button
+          type="button"
+          className="sidebar-action"
+          onClick={handleAddPastEntry}
+        >
+          Add past entry
+        </button>
       </div>
 
       <div className="date-list" role="list">
@@ -33,7 +42,6 @@ function EntrySidebar({
         ) : null}
 
         {dateValues.map((dateValue) => {
-          const hasEntry = entries.some((entry) => entry.entry_date === dateValue)
           const isSelected = selectedDate === dateValue
 
           return (
@@ -45,7 +53,7 @@ function EntrySidebar({
             >
               <span>{formatDateLabel(dateValue)}</span>
               <small>
-                {dateValue === today ? 'Today' : hasEntry ? 'Saved' : 'Draft'}
+                {dateValue === today ? 'Today' : 'Saved'}
               </small>
             </button>
           )
