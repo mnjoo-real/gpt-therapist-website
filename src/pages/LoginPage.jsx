@@ -1,6 +1,25 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
+function getFriendlyAuthError(error) {
+  const message = error?.message || 'Unable to sign in.'
+  const normalizedMessage = message.toLowerCase()
+
+  if (normalizedMessage.includes('invalid login credentials')) {
+    return 'The email or password is not correct. Please check both and try again.'
+  }
+
+  if (normalizedMessage.includes('email not confirmed')) {
+    return 'This email has not been confirmed yet. Please confirm the email in Supabase or disable email confirmation for this private app.'
+  }
+
+  if (normalizedMessage.includes('email logins are disabled')) {
+    return 'Email password login is disabled in Supabase Auth settings.'
+  }
+
+  return message
+}
+
 function LoginPage({ message, onNavigateHome }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -13,14 +32,14 @@ function LoginPage({ message, onNavigateHome }) {
     setIsSubmitting(true)
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim(),
       password,
     })
 
     setIsSubmitting(false)
 
     if (error) {
-      setErrorMessage(error.message)
+      setErrorMessage(getFriendlyAuthError(error))
       return
     }
 
