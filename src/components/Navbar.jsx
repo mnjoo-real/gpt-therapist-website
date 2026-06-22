@@ -1,11 +1,18 @@
-function Navbar({ displayName, onSignOut }) {
+function Navbar({ displayName, onChangePassword, onSignOut }) {
   return (
     <header className="navbar">
       <a className="brand" href="/">
-        GPTherapist
+        Reflection Journal
       </a>
       <div className="nav-actions">
         <span className="nav-user">{displayName}</span>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onChangePassword}
+        >
+          Change password
+        </button>
         <button type="button" className="secondary-button" onClick={onSignOut}>
           Sign out
         </button>

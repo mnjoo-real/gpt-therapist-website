@@ -20,6 +20,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [isLoadingSession, setIsLoadingSession] = useState(true)
+  const [loginMessage, setLoginMessage] = useState('')
 
   useEffect(() => {
     const handlePopState = () => setPath(getCurrentPath())
@@ -104,6 +105,14 @@ function App() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
+    setLoginMessage('')
+    navigateTo('/login')
+  }
+
+  function handleSessionInvalid() {
+    setSession(null)
+    setProfile(null)
+    setLoginMessage('Please log in again to continue.')
     navigateTo('/login')
   }
 
@@ -116,7 +125,15 @@ function App() {
   }
 
   if (path === '/login') {
-    return <LoginPage onNavigateHome={() => navigateTo('/')} />
+    return (
+      <LoginPage
+        message={loginMessage}
+        onNavigateHome={() => {
+          setLoginMessage('')
+          navigateTo('/')
+        }}
+      />
+    )
   }
 
   if (!session) {
@@ -131,6 +148,7 @@ function App() {
     <MainPage
       profile={profile}
       session={session}
+      onSessionInvalid={handleSessionInvalid}
       onSignOut={handleSignOut}
     />
   )

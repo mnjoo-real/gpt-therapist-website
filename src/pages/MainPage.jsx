@@ -3,6 +3,7 @@ import EntrySidebar from '../components/EntrySidebar'
 import EssayEditor from '../components/EssayEditor'
 import Footer from '../components/Footer'
 import Navbar from '../components/Navbar'
+import PasswordChangeForm from '../components/PasswordChangeForm'
 import ReflectionPreview from '../components/ReflectionPreview'
 import { supabase } from '../lib/supabaseClient'
 
@@ -29,7 +30,7 @@ function getEntryForDate(entries, dateValue) {
   return entries.find((entry) => entry.entry_date === dateValue) || null
 }
 
-function MainPage({ profile, session, onSignOut }) {
+function MainPage({ profile, session, onSessionInvalid, onSignOut }) {
   const today = useMemo(() => getTodayDate(), [])
   const [entries, setEntries] = useState([])
   const [selectedDate, setSelectedDate] = useState(today)
@@ -40,6 +41,7 @@ function MainPage({ profile, session, onSignOut }) {
   const [mentalContext, setMentalContext] = useState(null)
   const [reflectionStatus, setReflectionStatus] = useState('')
   const [reflectionError, setReflectionError] = useState('')
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [saveStatus, setSaveStatus] = useState('')
 
@@ -216,7 +218,11 @@ function MainPage({ profile, session, onSignOut }) {
 
   return (
     <div className="app-shell">
-      <Navbar displayName={displayName} onSignOut={onSignOut} />
+      <Navbar
+        displayName={displayName}
+        onChangePassword={() => setIsPasswordFormOpen(true)}
+        onSignOut={onSignOut}
+      />
 
       <main className="journal-layout">
         <EntrySidebar
@@ -237,6 +243,13 @@ function MainPage({ profile, session, onSignOut }) {
             <p className="page-error" role="alert">
               Could not load journal entries: {loadError}
             </p>
+          ) : null}
+
+          {isPasswordFormOpen ? (
+            <PasswordChangeForm
+              onCancel={() => setIsPasswordFormOpen(false)}
+              onSessionInvalid={onSessionInvalid}
+            />
           ) : null}
 
           <EssayEditor

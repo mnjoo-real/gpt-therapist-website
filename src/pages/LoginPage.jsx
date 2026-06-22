@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-function LoginPage({ onNavigateHome }) {
+function LoginPage({ message, onNavigateHome }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
@@ -35,6 +35,8 @@ function LoginPage({ onNavigateHome }) {
         <p className="login-intro">
           Enter your email and password to open today&apos;s journal.
         </p>
+
+        {message ? <p className="form-info">{message}</p> : null}
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label htmlFor="email">Email address</label>
