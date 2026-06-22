@@ -2,7 +2,7 @@ function Navbar({ displayName, onSignOut }) {
   return (
     <header className="navbar">
       <a className="brand" href="/">
-        Reflection Journal
+        GPTherapist
       </a>
       <div className="nav-actions">
         <span className="nav-user">{displayName}</span>
