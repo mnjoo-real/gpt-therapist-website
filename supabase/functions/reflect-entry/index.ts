@@ -135,6 +135,42 @@ function extractOutputText(openAiResponse: Record<string, unknown>) {
   throw new Error('OpenAI response did not include output text.')
 }
 
+function createConciseMentalContext(
+  mentalContext: Record<string, unknown> | null,
+) {
+  if (!mentalContext) {
+    return null
+  }
+
+  return {
+    long_term_summary: mentalContext.long_term_summary || '',
+    recurring_themes: Array.isArray(mentalContext.recurring_themes)
+      ? mentalContext.recurring_themes.slice(0, 8)
+      : [],
+    emotional_patterns: mentalContext.emotional_patterns || {},
+    helpful_response_style: mentalContext.helpful_response_style || '',
+    last_updated_entry_date: mentalContext.last_updated_entry_date || null,
+  }
+}
+
+function createConciseRecentReflections(
+  recentReflections: Record<string, unknown>[] | null,
+) {
+  if (!Array.isArray(recentReflections)) {
+    return []
+  }
+
+  return recentReflections.map((reflection) => ({
+    summary: reflection.summary || '',
+    themes: Array.isArray(reflection.themes)
+      ? reflection.themes.slice(0, 5)
+      : [],
+    emotions: reflection.emotions || {},
+    risk_level: reflection.risk_level || 'none',
+    updated_at: reflection.updated_at || null,
+  }))
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -206,7 +242,7 @@ Deno.serve(async (request) => {
         .select('summary,themes,emotions,risk_level,created_at,updated_at')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
-        .limit(5),
+        .limit(3),
     ])
 
     const systemPrompt = `
@@ -224,8 +260,10 @@ Return strict JSON only. Do not include markdown, prose outside JSON, or code fe
           entry_date: entry.entry_date,
           content: entry.content || '',
         },
-        existing_long_term_context: mentalContext || null,
-        recent_reflections: recentReflections || [],
+        existing_long_term_context:
+          createConciseMentalContext(mentalContext),
+        recent_reflections:
+          createConciseRecentReflections(recentReflections),
         output_requirements: {
           summary: 'short summary of the selected entry',
           emotions:
@@ -255,6 +293,7 @@ Return strict JSON only. Do not include markdown, prose outside JSON, or code fe
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
+        max_output_tokens: 850,
         text: {
           format: {
             type: 'json_schema',
